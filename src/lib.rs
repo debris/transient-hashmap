@@ -23,7 +23,7 @@ impl Timer for StandardTimer {
 	}
 }
 
-pub struct TransientHashMap<K, V, T> where T: Timer {
+pub struct TransientHashMap<K, V, T = StandardTimer> where T: Timer {
 	backing: HashMap<K, V>,
 	timestamps: RefCell<HashMap<K, i64>>,
 	lifetime: u64,
