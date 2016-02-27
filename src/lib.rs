@@ -10,7 +10,9 @@ use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::ops::{Deref, DerefMut};
 
+/// Time provider.
 pub trait Timer {
+	/// Returns current timestamp in seconds.
 	fn get_time(&self) -> i64;
 }
 
