@@ -137,13 +137,13 @@ mod test {
 		}
 	}
 
-    #[test]
-    fn it_works() {
+	#[test]
+	fn it_works() {
 		let time = RefCell::new(0);
 		let timer = TestTimer {
 			time: &time
 		};
-	
+
 		let mut t_map = TransientHashMap::new_with_timer(2, timer);
 		assert_eq!(t_map.remaining_lifetime(&1), 0);
 
@@ -170,5 +170,5 @@ mod test {
 
 		*time.borrow_mut() = 1;
 		assert_eq!(t_map.remaining_lifetime(&1), 0);
-    }
+	}
 }
