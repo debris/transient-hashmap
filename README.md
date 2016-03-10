@@ -15,6 +15,6 @@ Simple rust HashMap with transient entries.
 
 ```
 [dependencies]
-transient-hashmap = "0.1"
+transient-hashmap = "0.2"
 ```
 
