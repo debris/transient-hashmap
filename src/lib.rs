@@ -85,18 +85,21 @@ impl<K, V, T> TransientHashMap<K, V, T> where K: Eq + Hash, T: Timer {
 		self.timestamps.borrow_mut().insert(key, self.timer.get_time());
 	}
 
-	pub fn prune(&mut self) {
+	pub fn prune(&mut self) -> Vec<K> {
 		let now = self.timer.get_time();
-		let timestamps = mem::replace(&mut self.timestamps, RefCell::new(HashMap::new()));
-		*self.timestamps.borrow_mut() = timestamps.into_inner().into_iter()
-			.filter(|entry| ((now - entry.1) as u64) < self.lifetime)
-			.collect();
 
-		let backing = mem::replace(&mut self.backing, HashMap::new());
-		let timestamps = self.timestamps.borrow();
-		self.backing = backing.into_iter()
-			.filter(|entry| timestamps.contains_key(&entry.0))
-			.collect();
+		let timestamps = mem::replace(&mut self.timestamps, RefCell::new(HashMap::new()));
+		let (ok, removed) = timestamps.into_inner().into_iter()
+			.partition(|entry| ((now - entry.1) as u64) < self.lifetime);
+		*self.timestamps.borrow_mut() = ok;
+
+		removed
+			.into_iter()
+			.map(|entry| {
+				self.backing.remove(&entry.0);
+				entry.0
+			})
+			.collect()
 	}
 
 	pub fn direct(&self) -> &HashMap<K, V> {
@@ -135,6 +138,34 @@ mod test {
 		fn get_time(&self) -> i64 {
 			*self.time.borrow()
 		}
+	}
+
+	#[test]
+	fn should_return_pruned_keys() {
+		// given
+		let time = RefCell::new(0);
+		let timer = TestTimer {
+			time: &time
+		};
+
+		let mut t_map = TransientHashMap::new_with_timer(2, timer);
+		t_map.insert(1, 0);
+		t_map.insert(2, 0);
+		t_map.insert(3, 0);
+		*time.borrow_mut() = 1;
+		t_map.insert(4, 0);
+		assert_eq!(t_map.direct().len(), 4);
+
+		// when
+		*time.borrow_mut() = 2;
+		let keys = t_map.prune();
+
+		// then
+		assert_eq!(t_map.direct().len(), 1);
+		assert_eq!(keys.len(), 3);
+		assert!(keys.contains(&1));
+		assert!(keys.contains(&2));
+		assert!(keys.contains(&3));
 	}
 
 	#[test]
