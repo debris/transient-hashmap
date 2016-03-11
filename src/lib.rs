@@ -77,7 +77,10 @@ impl<K, V, T> TransientHashMap<K, V, T> where K: Eq + Hash, T: Timer {
 		let timestamps = self.timestamps.borrow();
 		match timestamps.get(key) {
 			None => 0,
-			Some(time) => cmp::max(0, self.lifetime - (self.timer.get_time() - time) as u64)
+			Some(time) => {
+				let time = self.timer.get_time() - time;
+				cmp::max(0, self.lifetime as i64 - time) as u64
+			}
 		}
 	}
 
