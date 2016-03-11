@@ -127,23 +127,41 @@ impl<K, V, T> DerefMut for TransientHashMap<K, V, T> where T: Timer {
 
 #[cfg(test)]
 mod test {
-	use std::cell::RefCell;
+	use std::cell::Cell;
 	use super::{TransientHashMap, Timer};
 
 	struct TestTimer<'a> {
-		time: &'a RefCell<i64>
+		time: &'a Cell<i64>
 	}
 
 	impl<'a> Timer for TestTimer<'a> {
 		fn get_time(&self) -> i64 {
-			*self.time.borrow()
+			self.time.get()
 		}
+	}
+
+	#[test]
+	fn should_return_correct_lifetime_when_negative() {
+		// given
+		let time = Cell::new(0);
+		let timer = TestTimer {
+			time: &time
+		};
+		let mut t_map = TransientHashMap::new_with_timer(2, timer);
+		t_map.insert(1, 0);
+
+		// when
+		time.set(10);
+
+		// then
+		assert_eq!(t_map.remaining_lifetime(&1), 0);
+
 	}
 
 	#[test]
 	fn should_return_pruned_keys() {
 		// given
-		let time = RefCell::new(0);
+		let time = Cell::new(0);
 		let timer = TestTimer {
 			time: &time
 		};
@@ -152,12 +170,12 @@ mod test {
 		t_map.insert(1, 0);
 		t_map.insert(2, 0);
 		t_map.insert(3, 0);
-		*time.borrow_mut() = 1;
+		time.set(1);
 		t_map.insert(4, 0);
 		assert_eq!(t_map.direct().len(), 4);
 
 		// when
-		*time.borrow_mut() = 2;
+		time.set(2);
 		let keys = t_map.prune();
 
 		// then
@@ -170,7 +188,7 @@ mod test {
 
 	#[test]
 	fn it_works() {
-		let time = RefCell::new(0);
+		let time = Cell::new(0);
 		let timer = TestTimer {
 			time: &time
 		};
@@ -181,25 +199,25 @@ mod test {
 		t_map.insert(1, 1);
 		assert_eq!(t_map.remaining_lifetime(&1), 2);
 
-		*time.borrow_mut() = 1;
+		time.set(1);
 		assert_eq!(t_map.remaining_lifetime(&1), 1);
 
-		*time.borrow_mut() = 2;
+		time.set(2);
 		assert_eq!(t_map.remaining_lifetime(&1), 0);
 
-		*time.borrow_mut() = 1;
+		time.set(1);
 		assert_eq!(t_map.remaining_lifetime(&1), 1);
 
 		t_map.prune();
 		assert_eq!(t_map.remaining_lifetime(&1), 1);
 
-		*time.borrow_mut() = 2;
+		time.set(2);
 		assert_eq!(t_map.remaining_lifetime(&1), 0);
 
 		t_map.prune();
 		assert_eq!(t_map.remaining_lifetime(&1), 0);
 
-		*time.borrow_mut() = 1;
+		time.set(1);
 		assert_eq!(t_map.remaining_lifetime(&1), 0);
 	}
 }
