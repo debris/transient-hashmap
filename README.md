@@ -10,11 +10,24 @@ Simple rust HashMap with transient entries.
 
 ## Example
 
-`Cargo.toml`
+```rust
+use transient_hashmap::TransientHashMap;
 
+let entry_lifetime_seconds = 0;
+let mut map = TransientHashMap::new(entry_lifetime_seconds);
+map.insert(10, "Hello World");
+
+// Clear old entries
+map.prune();
+
+// Item is not there
+assert_eq!(map.contains_key(10), false);
+```
+
+`Cargo.toml`
 
 ```
 [dependencies]
-transient-hashmap = "0.2"
+transient-hashmap = "0.3"
 ```
 
