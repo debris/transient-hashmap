@@ -3,7 +3,7 @@ description = "Simple rust HashMap with transient entries."
 homepage = "https://github.com/debris/transient-hashmap"
 license = "MIT"
 name = "transient-hashmap"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["debris <marek.kotewicz@gmail.com>"]
 keywords = ["hashmap", "transient", "temporary", "lru", "cache"]
 
