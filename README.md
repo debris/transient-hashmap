@@ -28,6 +28,6 @@ assert_eq!(map.contains_key(10), false);
 
 ```
 [dependencies]
-transient-hashmap = "0.3"
+transient-hashmap = "0.4"
 ```
 
