@@ -7,7 +7,6 @@ extern crate time;
 use std::mem;
 use std::cmp;
 use std::hash::Hash;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::ops::{Deref, DerefMut};
@@ -36,7 +35,7 @@ impl Timer for StandardTimer {
 /// to remove old entries.
 pub struct TransientHashMap<K, V, T = StandardTimer> where T: Timer {
 	backing: HashMap<K, V>,
-	timestamps: RefCell<HashMap<K, i64>>,
+	timestamps: HashMap<K, i64>,
 	lifetime: LifetimeSec,
 	timer: T
 }
@@ -53,7 +52,7 @@ impl<K, V, T> TransientHashMap<K, V, T> where K: Eq + Hash + Clone, T: Timer {
 	pub fn new_with_timer(lifetime: LifetimeSec, t: T) -> Self {
 		TransientHashMap {
 			backing: HashMap::new(),
-			timestamps: RefCell::new(HashMap::new()),
+			timestamps: HashMap::new(),
 			lifetime: lifetime,
 			timer: t
 		}
@@ -80,10 +79,10 @@ impl<K, V, T> TransientHashMap<K, V, T> where K: Eq + Hash + Clone, T: Timer {
 	/// Gets reference to stored value.
 	///
 	/// Prolongs lifetime of `key` if is in the map.
-	pub fn get(&self, key: &K) -> Option<&V> {
-		let result = self.backing.get(key);
-		self.note_used_if(result.is_some(), key);
-		result
+	pub fn get(&mut self, key: &K) -> Option<&V> {
+		let has_key = self.backing.contains_key(key);
+		self.note_used_if(has_key, key);
+		self.backing.get(key)
 	}
 
 	/// Gets mutable reference to stored value.
@@ -98,25 +97,32 @@ impl<K, V, T> TransientHashMap<K, V, T> where K: Eq + Hash + Clone, T: Timer {
 	/// Checks if `key` is contained.
 	///
 	/// Prolongs lifetime of `key` if is in the map.
-	pub fn contains_key(&self, key: &K) -> bool {
+	pub fn contains_key(&mut self, key: &K) -> bool {
 		let contains = self.backing.contains_key(key);
 		self.note_used_if(contains, key);
 		contains
 	}
 
+	/// Removes `key` from the map if present.
+	///
+	/// Also removes associated lifetime.
+	pub fn remove(&mut self, k: &K) -> Option<V> {
+		self.timestamps.remove(k);
+		self.backing.remove(k)
+	}
+
 	/// Returns remaining lifetime of `key` without altering it.
-	pub fn remaining_lifetime(&self, key: &K) -> Option<LifetimeSec> {
-		let timestamps = self.timestamps.borrow();
-		timestamps.get(key).map(|time| {
+	pub fn remaining_lifetime(&mut self, key: &K) -> Option<LifetimeSec> {
+		self.timestamps.get(key).map(|time| {
 				let time = self.timer.get_time() - time;
 				cmp::max(0, self.lifetime as i64 - time) as LifetimeSec
 		})
 	}
 
 	#[inline]
-	fn note_used_if(&self, condition: bool, key: &K) {
+	fn note_used_if(&mut self, condition: bool, key: &K) {
 		if condition {
-			self.timestamps.borrow_mut().insert(key.clone(), self.timer.get_time());
+			self.timestamps.insert(key.clone(), self.timer.get_time());
 		}
 	}
 
@@ -124,10 +130,10 @@ impl<K, V, T> TransientHashMap<K, V, T> where K: Eq + Hash + Clone, T: Timer {
 	pub fn prune(&mut self) -> Vec<K> {
 		let now = self.timer.get_time();
 
-		let timestamps = mem::replace(&mut self.timestamps, RefCell::new(HashMap::new()));
-		let (ok, removed) = timestamps.into_inner().into_iter()
+		let timestamps = mem::replace(&mut self.timestamps, HashMap::new());
+		let (ok, removed) = timestamps.into_iter()
 			.partition(|entry| now - entry.1 < self.lifetime as i64);
-		*self.timestamps.borrow_mut() = ok;
+		self.timestamps = ok;
 
 		removed
 			.into_iter()
@@ -179,13 +185,31 @@ mod test {
 	}
 
 	#[test]
+	fn should_remove_lifetime_when_calling_remove() {
+		// given
+		let time = Cell::new(0);
+		let timer = TestTimer {
+			time: &time
+		};
+		let mut t_map: TransientHashMap<u64, (), _> = TransientHashMap::new_with_timer(2, timer);
+		t_map.insert(2, ());
+		assert_eq!(t_map.remaining_lifetime(&2), Some(2));
+
+		// when
+		t_map.remove(&2);
+
+		// then
+		assert_eq!(t_map.remaining_lifetime(&2), None);
+	}
+
+	#[test]
 	fn should_not_track_lifetime_if_key_is_not_present() {
 		// given
 		let time = Cell::new(0);
 		let timer = TestTimer {
 			time: &time
 		};
-		let t_map: TransientHashMap<u64, (), _> = TransientHashMap::new_with_timer(2, timer);
+		let mut t_map: TransientHashMap<u64, (), _> = TransientHashMap::new_with_timer(2, timer);
 
 		// when
 		t_map.contains_key(&2);
