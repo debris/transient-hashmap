@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["StandardTimer","Standard time provider returning current time."],["TransientHashMap","`HashMap` with entries that will be garbage collected (pruned) after not being used for specified time."]],"trait":[["Timer","Time provider."]]});
