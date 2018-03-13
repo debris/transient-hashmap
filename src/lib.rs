@@ -2,14 +2,13 @@
 
 //! HashMap with entries living for limited period of time.
 
-extern crate time;
-
 use std::mem;
 use std::cmp;
 use std::hash::Hash;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::ops::{Deref, DerefMut};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 type LifetimeSec = u32;
 
@@ -24,7 +23,10 @@ pub trait Timer {
 pub struct StandardTimer;
 impl Timer for StandardTimer {
 	fn get_time(&self) -> i64 {
-		time::get_time().sec
+		match SystemTime::now().duration_since(UNIX_EPOCH) {
+			Ok(d) => d.as_secs() as i64,
+			Err(err) => -(err.duration().as_secs() as i64)
+		}
 	}
 }
 
